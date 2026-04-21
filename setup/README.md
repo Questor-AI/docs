@@ -34,14 +34,16 @@ Create a directory on your computer and use it for all commands below (for examp
 
 ## 2. Download the Compose file
 
-Download the QuestorAI Compose file using either option:
+The Compose file lives in the [Questor-AI/docs](https://github.com/Questor-AI/docs) repository: [`setup/docker-compose.yml`](https://github.com/Questor-AI/docs/blob/main/setup/docker-compose.yml).
 
-- **Option A — Browser:** Open [https://kuykendallinc.com/questorai/docker-compose.yml](https://kuykendallinc.com/questorai/docker-compose.yml), then use **Save As** and save it as `docker-compose.yml` in the folder you created in step 1.
+Download it using either option:
 
-- **Option B — Command line:**
+- **Option A — Browser:** Open the [**raw** `docker-compose.yml`](https://raw.githubusercontent.com/Questor-AI/docs/main/setup/docker-compose.yml) (plain text). Use **Save As** / **Save Page As** and save it as `docker-compose.yml` in the folder you created in step 1. (If the file opens in the tab, use your browser’s save command, e.g. **File → Save As**.)
+
+- **Option B — Command line** (downloads straight to `docker-compose.yml`):
 
   ```bash
-  curl -fsSL -o docker-compose.yml https://kuykendallinc.com/questorai/docker-compose.yml
+  curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Questor-AI/docs/main/setup/docker-compose.yml
   ```
 
 Proceed when you have the **`docker-compose.yml`** in your folder.
