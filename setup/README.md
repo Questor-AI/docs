@@ -82,13 +82,21 @@ Your administrator may provide more variables (timeouts, logging, etc.). Use wha
 
 The QuestorAI container is private, so you must sign in to **`ghcr.io`** with a GitHub user or token that has permission to pull the image.
 
-Create a token with **`read:packages`** (see [GitHub: Working with the Container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)), then run:
+Create a token with **`read:packages`** (see [GitHub: Working with the Container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)). For **fine-grained** tokens, grant read access to **Packages** for the Questor-AI org (or this repository) as your org allows.
+
+Use **one** of the following login methods (you do **not** need both). In each case, use your **GitHub username** for `-u`, not your email.
+
+**Option A — Personal access token (PAT)**  
+Create a PAT with **`read:packages`** as above, then:
 
 ```bash
 echo YOUR_GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 ```
 
-Replace **`YOUR_GITHUB_USERNAME`** with your GitHub username and **`YOUR_GITHUB_TOKEN`** with the PAT. Alternatively, if you use the [GitHub CLI](https://cli.github.com/) (`gh auth login`), you can run:
+Replace **`YOUR_GITHUB_USERNAME`** and **`YOUR_GITHUB_TOKEN`** with your account and token.
+
+**Option B — GitHub CLI**  
+If you use [GitHub CLI](https://cli.github.com/) and are already signed in with `gh auth login` (with scopes that can read packages—add `read:packages` to your `gh auth` scopes if pulls still fail), you can pipe the CLI’s token instead of managing a PAT by hand:
 
 ```bash
 echo "$(gh auth token)" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
