@@ -8,7 +8,7 @@ This guide explains how to run the **prebuilt** Questor image from **GitHub Cont
 
 | | |
 |--|--|
-| **Image** | `ghcr.io/questor-ai/questor-app:latest` on [GHCR](https://github.com/orgs/Questor-AI/packages/container/package/questor-app) (under the [Questor-AI](https://github.com/Questor-AI) organization) |
+| **Image** | `ghcr.io/questor-ai/questor-app:latest` — [package on GHCR](https://github.com/Questor-AI/container-access/pkgs/container/questor-app) ([Questor-AI](https://github.com/Questor-AI) org). The image is **connected to** the [`container-access`](https://github.com/Questor-AI/container-access) repo so you can grant outside collaborators access to the package via that repository. |
 | **Typical use** | Web portal (browser UI) for security reports and scans, with data stored in a Docker volume |
 
 Because the image is in a **private** package, each person or machine must authenticate to **`ghcr.io`** with credentials that can pull `questor-ai/questor-app` before `docker pull`.
