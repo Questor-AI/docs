@@ -1,0 +1,28 @@
+# Run the published image from GitHub Container Registry (GHCR) — no local build.
+#
+# Prerequisites: authenticate to ghcr.io, then pull ghcr.io/questor-ai/questor-app:latest
+# From the directory with this file and .env:
+#   docker compose --profile portal up -d
+#
+# Environment variables: see published-README.md (or your administrator’s env docs).
+
+services:
+  portal:
+    image: ghcr.io/questor-ai/questor-app:latest
+    container_name: questorai-portal
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "${PORTAL_PORT:-8080}:80"
+    volumes:
+      - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo:ro
+      - scan_data:/data
+    environment:
+      MODE: portal
+      REPORT_HOST: 0.0.0.0
+    restart: unless-stopped
+    profiles:
+      - portal
+volumes:
+  scan_data:
