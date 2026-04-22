@@ -21,6 +21,16 @@ Because the image is in a **private** package, each person or machine must authe
 - [Docker Compose](https://docs.docker.com/compose/install/) (v2: `docker compose` command)
 - A **GitHub account** granted access to the Questor-AI container package (your administrator adds you), and a [**personal access token (classic)**](https://github.com/settings/tokens) with at least the **`read:packages`** scope (used only for `docker login ghcr.io`, not inside `.env` unless your team says otherwise)
 
+### Windows: Docker CLI from WSL
+
+On **Windows**, if you run these steps from a **Linux terminal in WSL** (common with **Docker Desktop** and the WSL 2 backend), a fresh install sometimes leaves your Linux user without permission to use the Docker socket (`permission denied` when you run `docker`). Add your user to the `docker` group and apply it in the current shell:
+
+```bash
+sudo usermod -aG docker $USER && newgrp docker
+```
+
+If issues remain, **restart the WSL distribution** (or sign out and back in) so the group change is picked up everywhere.
+
 ---
 
 ## 1. Set up a folder
@@ -133,6 +143,7 @@ The Compose file you were given may pin **`ghcr.io/questor-ai/questor-app:latest
 
 | Problem | What to try |
 |---------|-------------|
+| `permission denied` when running `docker` in **WSL** | See **Windows: Docker CLI from WSL** under Requirements (add your Linux user to the `docker` group). |
 | `docker pull` denied / 403 | Run `docker login ghcr.io` with a user and PAT that can **`read:packages`** for the Questor-AI org package. Confirm your GitHub account was granted access to the private image. |
 | Error about `HOST_REPO_PATH` | Set it to a real **absolute** path on the host; the folder must exist before you start the container. |
 | Port already in use | Set `PORTAL_PORT` in `.env` to a free port (for example `8081`). |
