@@ -64,25 +64,53 @@ Proceed when you have the **`docker-compose.yml`** in your folder.
 
 In the **same folder** as `docker-compose.yml`, create a file named **`.env`** (leading dot, no extension).
 
-**Example `.env` (adjust paths and secrets):**
+For the setup in this guide, **only two variables are required** in `.env`: **`HOST_REPO_PATH`** and **`LLM_API_KEY`**. Everything else below is optional.
+
+**Minimal `.env` (required variables only):**
 
 ```bash
 HOST_REPO_PATH=/absolute/path/to/your/source
-LLM_API_KEY=ABC123
+LLM_API_KEY=your-key-here
 ```
 
-### Required for normal use
+**Optional — same file with a custom OpenAI-compatible endpoint** (vLLM, LM Studio, OpenAI-compatible proxy, etc.). Omit these lines to use the app’s built-in defaults (Anthropic cloud when `LLM_PROVIDER` is unset):
+
+```bash
+HOST_REPO_PATH=/absolute/path/to/your/source
+LLM_API_KEY=your-key-here
+LLM_PROVIDER=openai_compatible
+LLM_BASE_URL=http://your-endpoint:11434
+LLM_MODEL=your-server-model-id
+```
+
+### Required variables
 
 | Variable | Description |
 |----------|-------------|
 | **`HOST_REPO_PATH`** | **Absolute path** on your machine to the **source code** you want to scan. The container mounts it read-only at `/repo`. Example: `/Users/you/projects/my-app` (macOS/Linux) or `C:\path\to\my-app` (Windows—use the path format your Docker setup expects in `.env`). |
-| **`LLM_API_KEY`** | API key for the LLM provider used by the scanner and related features, if your deployment uses them. If you run fully offline or without validation, your administrator may tell you to disable validation instead—see optional settings below. |
+| **`LLM_API_KEY`** | API key for the LLM used by scan validation and related features. |
 
-### Optional Values
+### Optional: LLM provider and endpoint
+
+All of the following are **optional**. If you omit them, the agent uses its defaults (including default provider, base URL, and model). The published image reads these from the environment **inside the container** (Compose loads your `.env`).
+
+| Variable | Default / behavior | Valid values and format |
+|----------|-------------------|-------------------------|
+| **`LLM_PROVIDER`** | **`anthropic`** when unset | **`anthropic`** or **`openai_compatible`**. Matched **exactly** (lowercase, underscores); any other value fails at runtime with an “unknown LLM provider” error. |
+| **`LLM_BASE_URL`** | Provider default (e.g. Anthropic’s API host; for **`openai_compatible`**, a localhost-style default that you will usually override when pointing at a real server) | **Scheme + host + port** only—**do not** append `/v1` or `/v1/chat/completions`. For **`openai_compatible`**, the client calls `{LLM_BASE_URL}/v1/chat/completions` with `Authorization: Bearer <LLM_API_KEY>`. For **`anthropic`**, overrides must be the Messages API base the app expects (default `https://api.anthropic.com/v1`; requests use `{LLM_BASE_URL}/messages` with `x-api-key`). |
+| **`LLM_MODEL`** | Built-in default per provider | Any string your API accepts as `model` (e.g. Anthropic: `claude-sonnet-4-20250514`; OpenAI-compatible: `gpt-4o`, a Hugging Face id such as `mistralai/Devstral-Small-2-24B-Instruct-2512`, or whatever your server documents). |
+| **`LLM_HTTP_TIMEOUT_SECS`** | `30` (minimum effective `10`) | Caps how long a single LLM HTTP call may block (connect + response body). |
+
+**Docker networking:** If you set **`LLM_BASE_URL`**, it is resolved **from inside the container**. If the LLM runs on the same machine as Docker, `http://127.0.0.1:…` usually points at the **container itself**, not your host. Use a host-reachable name or IP (for example `http://host.docker.internal:11434` on Docker Desktop for Mac/Windows, or your LAN IP) unless the model server is in the same Compose stack on a service name.
+
+### Optional: portal and scan behavior
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | **`PORTAL_PORT`** | `8080` | Host port for the web UI (maps to the app’s port 80 inside the container). |
+| **`SCAN_VALIDATE`** | on | Set to `0`, `false`, `no`, or `off` to run scans **without** LLM validation (`--no-validate`). Use only when your administrator approves offline or CI-only runs. |
+| **`PROVE_FIX_TIMEOUT_SECS`** | `60` | Used by the **portal API** when it runs the **`prove-fix-json`** helper (generate / prove-fix flows from the web UI). Hard limit in seconds for that subprocess; if the run exceeds it, the portal returns a timeout and kills the child. Raise it (for example `300` or `1200`) if your administrator expects long-running fixes. |
+| **`PROVE_FIX_SCANNER_LOG`** | `info` | Log verbosity for the **`prove-fix-json`** helper when the portal runs generate / prove-fix from the UI. Use common levels such as `error`, `warn`, `info`, or `debug` for more detail while troubleshooting. Your administrator may supply a richer filter string if needed. |
 
 Your administrator may provide more variables (timeouts, logging, etc.). Use whatever they supply; names are documented in any **`env.example`** they share.
 
@@ -147,6 +175,6 @@ The Compose file you were given may pin **`ghcr.io/questor-ai/questor-app:latest
 | `docker pull` denied / 403 | Run `docker login ghcr.io` with a user and PAT that can **`read:packages`** for the Questor-AI org package. Confirm your GitHub account was granted access to the private image. |
 | Error about `HOST_REPO_PATH` | Set it to a real **absolute** path on the host; the folder must exist before you start the container. |
 | Port already in use | Set `PORTAL_PORT` in `.env` to a free port (for example `8081`). |
-| Scan or LLM errors | Confirm `LLM_API_KEY` and any flags your administrator gave you; some environments use `SCAN_VALIDATE=0` for offline use—only if they told you to. |
+| Scan or LLM errors | Confirm required `HOST_REPO_PATH` and `LLM_API_KEY` are set. If you use optional LLM settings, confirm `LLM_PROVIDER`, `LLM_BASE_URL`, and `LLM_MODEL` match your endpoint (see **Optional: LLM provider and endpoint**). Typos in `LLM_PROVIDER` or a wrong base URL (e.g. including `/v1` twice for OpenAI-compatible servers) cause HTTP or parse errors. For offline use, your administrator may allow `SCAN_VALIDATE=0`. |
 
 For questions about keys, network policy, or which tag to use, contact whoever provided the image or this Compose file.
