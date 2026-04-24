@@ -73,7 +73,7 @@ HOST_REPO_PATH=/absolute/path/to/your/source
 LLM_API_KEY=your-key-here
 ```
 
-**Optional — same file with a custom OpenAI-compatible endpoint** (vLLM, LM Studio, OpenAI-compatible proxy, etc.). Omit these lines to use the app’s built-in defaults (Anthropic cloud when `LLM_PROVIDER` is unset):
+**Optional — OpenAI-compatible endpoint** (vLLM, LM Studio, OpenAI-compatible proxy, etc.). Omit these lines to use the app’s built-in defaults (Anthropic cloud when `LLM_PROVIDER` is unset):
 
 ```bash
 HOST_REPO_PATH=/absolute/path/to/your/source
@@ -81,6 +81,16 @@ LLM_API_KEY=your-key-here
 LLM_PROVIDER=openai_compatible
 LLM_BASE_URL=http://your-endpoint:11434
 LLM_MODEL=your-server-model-id
+```
+
+**Optional — explicit Anthropic cloud base** (only if you override; default is already correct):
+
+```bash
+HOST_REPO_PATH=/absolute/path/to/your/source
+LLM_API_KEY=your-key-here
+LLM_PROVIDER=anthropic
+LLM_BASE_URL=https://api.anthropic.com/v1
+LLM_MODEL=claude-sonnet-4-20250514
 ```
 
 ### Required variables
@@ -97,7 +107,7 @@ All of the following are **optional**. If you omit them, the agent uses its defa
 | Variable | Default / behavior | Valid values and format |
 |----------|-------------------|-------------------------|
 | **`LLM_PROVIDER`** | **`anthropic`** when unset | **`anthropic`** or **`openai_compatible`**. Matched **exactly** (lowercase, underscores); any other value fails at runtime with an “unknown LLM provider” error. |
-| **`LLM_BASE_URL`** | Provider default (e.g. Anthropic’s API host; for **`openai_compatible`**, a localhost-style default that you will usually override when pointing at a real server) | **Scheme + host + port** only—**do not** append `/v1` or `/v1/chat/completions`. For **`openai_compatible`**, the client calls `{LLM_BASE_URL}/v1/chat/completions` with `Authorization: Bearer <LLM_API_KEY>`. For **`anthropic`**, overrides must be the Messages API base the app expects (default `https://api.anthropic.com/v1`; requests use `{LLM_BASE_URL}/messages` with `x-api-key`). |
+| **`LLM_BASE_URL`** | Anthropic: **`https://api.anthropic.com/v1`** when unset. **`openai_compatible`**: **`http://localhost:8080`** when unset (usually overridden). | **No automatic URL rewriting** — the value is used verbatim. **Anthropic:** the app posts to **`{LLM_BASE_URL}/messages`** (`x-api-key`). For Anthropic’s cloud, use **`https://api.anthropic.com/v1`** (the default). A value like **`https://api.anthropic.com/`** (no `v1` path) is not equivalent and can fail. **OpenAI-compatible:** the app posts to **`{LLM_BASE_URL}/v1/chat/completions`** (`Authorization: Bearer`). Use the server **origin** without a trailing **`/v1`** on the base, or the path becomes **`/v1/v1/chat/completions`**. |
 | **`LLM_MODEL`** | Built-in default per provider | Any string your API accepts as `model` (e.g. Anthropic: `claude-sonnet-4-20250514`; OpenAI-compatible: `gpt-4o`, a Hugging Face id such as `mistralai/Devstral-Small-2-24B-Instruct-2512`, or whatever your server documents). |
 | **`LLM_HTTP_TIMEOUT_SECS`** | `30` (minimum effective `10`) | Caps how long a single LLM HTTP call may block (connect + response body). |
 
@@ -175,6 +185,6 @@ The Compose file you were given may pin **`ghcr.io/questor-ai/questor-app:latest
 | `docker pull` denied / 403 | Run `docker login ghcr.io` with a user and PAT that can **`read:packages`** for the Questor-AI org package. Confirm your GitHub account was granted access to the private image. |
 | Error about `HOST_REPO_PATH` | Set it to a real **absolute** path on the host; the folder must exist before you start the container. |
 | Port already in use | Set `PORTAL_PORT` in `.env` to a free port (for example `8081`). |
-| Scan or LLM errors | Confirm required `HOST_REPO_PATH` and `LLM_API_KEY` are set. If you use optional LLM settings, confirm `LLM_PROVIDER`, `LLM_BASE_URL`, and `LLM_MODEL` match your endpoint (see **Optional: LLM provider and endpoint**). Typos in `LLM_PROVIDER` or a wrong base URL (e.g. including `/v1` twice for OpenAI-compatible servers) cause HTTP or parse errors. For offline use, your administrator may allow `SCAN_VALIDATE=0`. |
+| Scan or LLM errors | Confirm required `HOST_REPO_PATH` and `LLM_API_KEY` are set. If you use optional LLM settings, confirm `LLM_PROVIDER`, `LLM_BASE_URL`, and `LLM_MODEL` match your endpoint (see **Optional: LLM provider and endpoint**). Typos in `LLM_PROVIDER` cause an unknown-provider error. For **Anthropic**, `LLM_BASE_URL` must be the Messages API root (typically **`https://api.anthropic.com/v1`**), not only **`https://api.anthropic.com/`**. For **OpenAI-compatible**, do not put **`/v1`** on the base URL alone or requests hit **`/v1/v1/chat/completions`**. The portal **Settings → LLM connection test** uses the same paths as the Rust agent (no rewriting). For offline use, your administrator may allow `SCAN_VALIDATE=0`. |
 
 For questions about keys, network policy, or which tag to use, contact whoever provided the image or this Compose file.
