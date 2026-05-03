@@ -4,6 +4,14 @@
 # From the directory with this file and .env:
 #   docker compose --profile portal up -d
 #
+# HOST_REPO_PATH is mounted read-write at /repo (not :ro) so API-driven scans and
+# Submit PR / git automation can create branches and commits on the mounted tree.
+#
+# To test a locally built image instead of GHCR, set e.g.:
+#   image: questor-app:local
+#   pull_policy: never
+# after: docker build -f container/Dockerfile . -t questor-app:local  (VulnDNA repo root).
+#
 # Environment variables: see published-README.md (or your administrator’s env docs).
 
 services:
@@ -16,7 +24,7 @@ services:
     ports:
       - "${PORTAL_PORT:-8080}:80"
     volumes:
-      - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo:ro
+      - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
       - scan_data:/data
     environment:
       MODE: portal

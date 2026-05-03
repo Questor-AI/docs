@@ -119,8 +119,45 @@ All of the following are **optional**. If you omit them, the agent uses its defa
 |----------|---------|-------------|
 | **`PORTAL_PORT`** | `8080` | Host port for the web UI (maps to the app’s port 80 inside the container). |
 | **`SCAN_VALIDATE`** | on | Set to `0`, `false`, `no`, or `off` to run scans **without** LLM validation (`--no-validate`). Use only when your administrator approves offline or CI-only runs. |
-| **`PROVE_FIX_TIMEOUT_SECS`** | `60` | Used by the **portal API** when it runs the **`prove-fix-json`** helper (generate / prove-fix flows from the web UI). Hard limit in seconds for that subprocess; if the run exceeds it, the portal returns a timeout and kills the child. Raise it (for example `300` or `1200`) if your administrator expects long-running fixes. |
-| **`PROVE_FIX_SCANNER_LOG`** | `info` | Log verbosity for the **`prove-fix-json`** helper when the portal runs generate / prove-fix from the UI. Use common levels such as `error`, `warn`, `info`, or `debug` for more detail while troubleshooting. Your administrator may supply a richer filter string if needed. |
+| **`GENERATEFIX_TIMEOUT_SECS`** | `1200` | Used by the **portal API** when it runs the **`generatefix`** helper (Generate fix and Autofix flows from the web UI). Hard limit in seconds for that subprocess; if the run exceeds it, the portal returns a timeout and kills the child. **`PROVE_FIX_TIMEOUT_SECS`** is still honored if **`GENERATEFIX_TIMEOUT_SECS`** is unset. Raise the limit (for example `300` or `1200`) if your administrator expects long-running fixes. |
+| **`GENERATEFIX_SCANNER_LOG`** | `info` | Log verbosity for **`generatefix`** when **`RUST_LOG`** is not set in the container. Use common levels such as `error`, `warn`, `info`, or `debug`. **`PROVE_FIX_SCANNER_LOG`** is still honored if **`GENERATEFIX_SCANNER_LOG`** is unset. |
+
+### Optional: Submit Pull Request from the report UI
+
+Some deployments let you open a **GitHub pull request** or **GitLab merge request** directly from an AI-generated fix in the security report (instead of only copying a patch). That flow runs **inside the portal container**: it uses **`git`** on the mounted repository and a **Git host API token** you supply. Ask your administrator whether your image tag includes this feature and which variable names it expects; the names below match the Questor **Function_Indexer** portal configuration.
+
+**These variables are not used to pull the Questor image from GHCR.** Image pulls still use `docker login ghcr.io` (see step 4). PR automation uses a **separate** token that must be allowed to **push a branch** and **open a PR/MR** on **your application’s** Git repository.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| **`QUESTOR_PR_GIT_HOST`** | `github` | Git platform: **`github`** or **`gitlab`**. |
+| **`QUESTOR_PR_GIT_TOKEN`** | (unset) | Personal access token (or GitLab PAT) used only by the portal API for `git` HTTPS push and REST calls to create the PR/MR. **Do not** paste this into the browser; keep it in `.env` on the host so Compose injects it into the container. |
+| **`QUESTOR_PR_GIT_USERNAME`** | (unset) | Account name for HTTPS push when the host requires it (for example your GitHub username instead of `x-access-token`). The same value is used as **`git commit` author name** in the container when set; otherwise the commit uses the placeholder name `Questor Portal`. |
+| **`QUESTOR_PR_GIT_EMAIL`** | (unset) | Email on the **local** `git commit` the portal creates before push. If unset, a placeholder address is used so `git commit` succeeds without `git config` in the image; set this to your org’s noreply address for a coherent author line on the host. |
+
+**Typical `.env` fragment (example only — use a real token from your Git host):**
+
+```bash
+# Optional — only if your build supports “Submit Pull Request” from the report UI
+QUESTOR_PR_GIT_HOST=github
+QUESTOR_PR_GIT_USERNAME=your-github-username
+QUESTOR_PR_GIT_TOKEN=ghp_your_token_with_repo_scope
+# Optional — commit author email in the container (username above is also used as commit author name when set)
+# QUESTOR_PR_GIT_EMAIL=you+noreply@yourcompany.example
+```
+
+**Per-scan repository URL:** The portal stores an **HTTPS clone URL** for the project you scanned (for example `https://github.com/your-org/your-app.git`). Enter it when you run a scan from the **Run security scan** page (alongside scan target and optional repo name), or set it later the way your administrator documents (for example a `PATCH` on the portal API for scans created from the CLI). The URL must correspond to the **same code** mounted at **`HOST_REPO_PATH`** (the container sees it as **`/repo`**), and the working tree must be **clean** (`git status` shows no local changes) when you submit a PR, so the automation does not overwrite uncommitted work.
+
+**Token scopes (high level):**
+
+- **GitHub:** The token needs permission to **push** to the target repository and **create pull requests** (for a private repo, a classic PAT needs the **`repo`** scope; for a public repo, **`public_repo`** may suffice). Fine-grained PATs need equivalent repository contents and pull request permissions—confirm in [GitHub’s PAT documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
+- **GitLab:** Use a PAT with scopes that allow **API** access and **write** to the repository (your administrator or [GitLab token docs](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) can confirm the minimum set).
+
+**Self-managed GitLab:** Your administrator may provide an extra base URL variable for the API (for example when `QUESTOR_PR_GIT_HOST=gitlab` and the host is not `gitlab.com`).
+
+**Container note:** The image must include the **`git`** package if the portal runs branch/commit/push commands. If submit fails with “git not found”, upgrade to an image your vendor built with `git` installed, or ask them to add it.
+
+**Compose:** Your `docker-compose.yml` must pass these variables into the container (the same way it passes `LLM_API_KEY` and `HOST_REPO_PATH`). If you add them to `.env` but they are not listed under `environment:` or `env_file:` for the portal service, the feature will not see them.
 
 Your administrator may provide more variables (timeouts, logging, etc.). Use whatever they supply; names are documented in any **`env.example`** they share.
 
@@ -186,5 +223,6 @@ The Compose file you were given may pin **`ghcr.io/questor-ai/questor-app:latest
 | Error about `HOST_REPO_PATH` | Set it to a real **absolute** path on the host; the folder must exist before you start the container. |
 | Port already in use | Set `PORTAL_PORT` in `.env` to a free port (for example `8081`). |
 | Scan or LLM errors | Confirm required `HOST_REPO_PATH` and `LLM_API_KEY` are set. If you use optional LLM settings, confirm `LLM_PROVIDER`, `LLM_BASE_URL`, and `LLM_MODEL` match your endpoint (see **Optional: LLM provider and endpoint**). Typos in `LLM_PROVIDER` cause an unknown-provider error. For **Anthropic**, `LLM_BASE_URL` must be the Messages API root (typically **`https://api.anthropic.com/v1`**), not only **`https://api.anthropic.com/`**. For **OpenAI-compatible**, do not put **`/v1`** on the base URL alone or requests hit **`/v1/v1/chat/completions`**. The portal **Settings → LLM connection test** uses the same paths as the Rust agent (no rewriting). For offline use, your administrator may allow `SCAN_VALIDATE=0`. |
+| Submit PR / MR fails (403, 404, or “not configured”) | Confirm **`QUESTOR_PR_GIT_TOKEN`** and **`QUESTOR_PR_GIT_USERNAME`** (if required) are set in `.env` and that the token can push to the repository whose HTTPS URL you stored for the scan. Confirm the per-scan **git remote URL** matches **`HOST_REPO_PATH`**. Ensure the repo is **clean** (no uncommitted changes). For “git not found”, use an image that includes the **`git`** binary. |
 
 For questions about keys, network policy, or which tag to use, contact whoever provided the image or this Compose file.
