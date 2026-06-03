@@ -15,7 +15,7 @@
 #   pull_policy: never
 # after: docker build -f container/Dockerfile . -t questor-app:local  (VulnDNA repo root).
 #
-# Environment variables: see published-README.md (or your administrator’s env docs).
+# Environment variables: see Questor-AI/container-access README.md (or your administrator’s env docs).
 
 services:
   portal:
