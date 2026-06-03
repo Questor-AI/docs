@@ -4,6 +4,9 @@
 # From the directory with this file and .env:
 #   docker compose --profile portal up -d
 #
+# Scans: POST /api/scan/start on the portal (see setup/README.md — "Automate scans with the portal API").
+# There is no headless scanner service (MODE=scan removed).
+#
 # HOST_REPO_PATH is mounted read-write at /repo (not :ro) so API-driven scans and
 # Submit PR / git automation can create branches and commits on the mounted tree.
 #
@@ -26,10 +29,27 @@ services:
     volumes:
       - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
       - scan_data:/data
+      # Enterprise / internal-CA TLS (FR2): if your LLM endpoint is fronted by an internal or
+      # corporate CA (internal gateway, SSL-inspection proxy, etc.), mount a directory of your
+      # root CA files (*.crt or *.pem) read-only at /etc/questor/extra-ca. At startup the container
+      # auto-installs them into its system trust store (update-ca-certificates) so BOTH the Rust
+      # scanner and the Python portal trust the endpoint — no env var, no HTTP sidecar proxy.
+      # (The container can't read the host trust store directly, so export/copy your roots here.)
+      # - ./ca-certs:/etc/questor/extra-ca:ro
     environment:
       MODE: portal
       REPORT_HOST: 0.0.0.0
     restart: unless-stopped
+    # Liveness: hit the unauthenticated API health endpoint *through nginx* (container port 80) so the
+    # check fails if either nginx or the FastAPI app is down/wedged — surfacing as "unhealthy" in
+    # `docker ps`. (The container also self-exits if uvicorn or nginx dies; this is the steady-state
+    # signal for an alive-but-unresponsive API.) start_period covers embedded-Postgres + app startup.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:80/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     profiles:
       - portal
 volumes:
