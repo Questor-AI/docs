@@ -27,6 +27,9 @@ services:
     ports:
       - "${PORTAL_PORT:-8080}:80"
     volumes:
+      # Single-container quickstart is SINGLE-TENANT: source mounts straight at /repo (clean
+      # recorded paths, no extra capability needed). Multi-tenant (Q_AUTH_REQUIRED=1) requires
+      # the multi-scanner compose with CAP_SYS_ADMIN; it is not supported here.
       - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
       - scan_data:/data
       # Enterprise / internal-CA TLS (FR2): if your LLM endpoint is fronted by an internal or
