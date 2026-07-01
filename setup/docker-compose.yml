@@ -3,17 +3,10 @@
 # Prerequisites: authenticate to ghcr.io, then pull ghcr.io/questor-ai/questor-app:latest
 # From the directory with this file and .env:
 #   docker compose --profile portal up -d
-#
-# Scans: POST /api/scan/start on the portal (see setup/README.md — "Automate scans with the portal API").
-# There is no headless scanner service (MODE=scan removed).
-#
-# HOST_REPO_PATH is mounted read-write at /repo (not :ro) so API-driven scans and
-# Submit PR / git automation can create branches and commits on the mounted tree.
-#
-# To test a locally built image instead of GHCR, set e.g.:
-#   image: questor-app:local
-#   pull_policy: never
-# after: docker build -f container/Dockerfile . -t questor-app:local  (VulnDNA repo root).
+# One-shot CI (JSON/SARIF exports to a host folder):
+#   Set HOST_SCAN_EXPORT_PATH in .env, then: ./launch.sh scan <target>
+#   (<target> = folder under HOST_REPO_PATH, e.g. my-app or .)
+#   (or: docker compose --profile scan run --rm -e SCAN_TARGET=... -e REPO_NAME=... scan)
 #
 # Environment variables: see README.md in this repo (or your administrator’s env docs).
 
@@ -27,26 +20,15 @@ services:
     ports:
       - "${PORTAL_PORT:-8080}:80"
     volumes:
-      # Single-container quickstart is SINGLE-TENANT: source mounts straight at /repo (clean
-      # recorded paths, no extra capability needed). Multi-tenant (Q_AUTH_REQUIRED=1) requires
-      # the multi-scanner compose with CAP_SYS_ADMIN; it is not supported here.
+      # Path to the directory containing the container repositories to scan (absolute path).
       - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
-      - scan_data:/data
-      # Enterprise / internal-CA TLS (FR2): if your LLM endpoint is fronted by an internal or
-      # corporate CA (internal gateway, SSL-inspection proxy, etc.), mount a directory of your
-      # root CA files (*.crt or *.pem) read-only at /etc/questor/extra-ca. At startup the container
-      # auto-installs them into its system trust store (update-ca-certificates) so BOTH the Rust
-      # scanner and the Python portal trust the endpoint — no env var, no HTTP sidecar proxy.
-      # (The container can't read the host trust store directly, so export/copy your roots here.)
-      # - ./ca-certs:/etc/questor/extra-ca:ro
+      # Volume for the PostgreSQL database, this will stay persistent.
+      - postgres_data:/var/lib/postgresql
     environment:
       MODE: portal
       REPORT_HOST: 0.0.0.0
+      POSTGRES_DATA_DIR: /var/lib/postgresql
     restart: unless-stopped
-    # Liveness: hit the unauthenticated API health endpoint *through nginx* (container port 80) so the
-    # check fails if either nginx or the FastAPI app is down/wedged — surfacing as "unhealthy" in
-    # `docker ps`. (The container also self-exits if uvicorn or nginx dies; this is the steady-state
-    # signal for an alive-but-unresponsive API.) start_period covers embedded-Postgres + app startup.
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:80/api/healthz"]
       interval: 30s
@@ -55,5 +37,23 @@ services:
       start_period: 60s
     profiles:
       - portal
+
+  # One-shot CI: MODE=scan writes JSON/SARIF under /data (bind-mount HOST_SCAN_EXPORT_PATH).
+  # Embedded Postgres is ephemeral (POSTGRES_DATA_DIR below, not on the export mount).
+  scan:
+    image: ghcr.io/questor-ai/questor-app:latest
+    container_name: questorai-scan
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
+      - ${HOST_SCAN_EXPORT_PATH:?Set HOST_SCAN_EXPORT_PATH in .env to an absolute host folder for JSON/SARIF export output}:/data
+    environment:
+      MODE: scan
+      POSTGRES_DATA_DIR: /var/lib/postgresql
+    profiles:
+      - scan
+
 volumes:
-  scan_data:
+  postgres_data:
