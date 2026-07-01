@@ -6,7 +6,6 @@
 # One-shot CI (JSON/SARIF exports to a host folder):
 #   Set HOST_SCAN_EXPORT_PATH in .env, then: ./launch.sh scan <target>
 #   (<target> = folder under HOST_REPO_PATH, e.g. my-app or .)
-#   (or: docker compose --profile scan run --rm -e SCAN_TARGET=... -e REPO_NAME=... scan)
 #
 # Environment variables: see README.md in this repo (or your administrator’s env docs).
 
@@ -22,12 +21,12 @@ services:
     volumes:
       # Path to the directory containing the container repositories to scan (absolute path).
       - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
-      # Volume for the PostgreSQL database, this will stay persistent.
+      # Volume for the PostgreSQL database (cluster at questor-data/ inside the mount).
       - postgres_data:/var/lib/postgresql
     environment:
       MODE: portal
       REPORT_HOST: 0.0.0.0
-      POSTGRES_DATA_DIR: /var/lib/postgresql
+      POSTGRES_DATA_DIR: /var/lib/postgresql/questor-data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:80/api/healthz"]
@@ -37,23 +36,6 @@ services:
       start_period: 60s
     profiles:
       - portal
-
-  # One-shot CI: MODE=scan writes JSON/SARIF under /data (bind-mount HOST_SCAN_EXPORT_PATH).
-  # Embedded Postgres is ephemeral (POSTGRES_DATA_DIR below, not on the export mount).
-  scan:
-    image: ghcr.io/questor-ai/questor-app:latest
-    container_name: questorai-scan
-    env_file:
-      - path: .env
-        required: false
-    volumes:
-      - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
-      - ${HOST_SCAN_EXPORT_PATH:?Set HOST_SCAN_EXPORT_PATH in .env to an absolute host folder for JSON/SARIF export output}:/data
-    environment:
-      MODE: scan
-      POSTGRES_DATA_DIR: /var/lib/postgresql
-    profiles:
-      - scan
 
 volumes:
   postgres_data:
