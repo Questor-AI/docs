@@ -21,12 +21,11 @@ services:
     volumes:
       # Path to the directory containing the container repositories to scan (absolute path).
       - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
-      # Volume for the PostgreSQL database (cluster at questor-data/ inside the mount).
+      # Volume for PostgreSQL (PGDATA at 18/docker/ inside the mount; see embedded-postgres.sh).
       - postgres_data:/var/lib/postgresql
     environment:
       MODE: portal
       REPORT_HOST: 0.0.0.0
-      POSTGRES_DATA_DIR: /var/lib/postgresql/questor-data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:80/api/healthz"]
