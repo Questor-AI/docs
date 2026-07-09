@@ -5,7 +5,7 @@
 #   docker compose --profile portal up -d
 # One-shot CI (JSON/SARIF exports to a host folder):
 #   Set HOST_SCAN_EXPORT_PATH in .env, then: ./launch.sh scan <target>
-#   (<target> = folder under HOST_REPO_PATH, e.g. my-app or .)
+#   (<target> = folder under Q_HOST_REPO_PATH, e.g. my-app or .)
 #
 # Environment variables: see README.md in this repo (or your administrator’s env docs).
 
@@ -20,7 +20,7 @@ services:
       - "${PORTAL_PORT:-8080}:80"
     volumes:
       # Path to the directory containing the container repositories to scan (absolute path).
-      - ${HOST_REPO_PATH:?Set HOST_REPO_PATH to the host path of the repository to scan}:/repo
+      - ${Q_HOST_REPO_PATH:?Set Q_HOST_REPO_PATH in .env}:/repo
       # Volume for PostgreSQL (PGDATA at 18/docker/ inside the mount; see embedded-postgres.sh).
       - postgres_data:/var/lib/postgresql
     environment:
